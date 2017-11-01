@@ -9,12 +9,21 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
-import com.ebolo.testapplication.MainApplication;
 import com.ebolo.testapplication.R;
 import com.ebolo.testapplication.data.entities.Student;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import io.paperdb.Paper;
+
 public class StudentFragment extends Fragment {
+    @BindView(R.id.list)
+    RecyclerView list;
 
     // TODO: Customize parameter argument names
     private static final String ARG_COLUMN_COUNT = "column-count";
@@ -52,18 +61,41 @@ public class StudentFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_student_list, container, false);
+        ButterKnife.bind(this, view);
 
-        // Set the adapter
-        if (view instanceof RecyclerView) {
-            Context context = view.getContext();
-            RecyclerView recyclerView = (RecyclerView) view;
-            if (mColumnCount <= 1) {
-                recyclerView.setLayoutManager(new LinearLayoutManager(context));
-            } else {
-                recyclerView.setLayoutManager(new GridLayoutManager(context, mColumnCount));
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final List<Student> students = Paper.book("students").read("studentList", new ArrayList<Student>());
+                if (students.isEmpty()) {
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getContext(), "Creating data", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    for (int i = 0; i < 1000; i++) {
+                        students.add(new Student(
+                                "name_" + i,
+                                "school_" + i,
+                                i
+                        ));
+                    }
+                    Paper.book("students").write("studentList", students);
+                }
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mColumnCount <= 1) {
+                            list.setLayoutManager(new LinearLayoutManager(getContext()));
+                        } else {
+                            list.setLayoutManager(new GridLayoutManager(getContext(), mColumnCount));
+                        }
+                        list.setAdapter(new MyStudentRecyclerViewAdapter(students, mListener));
+                    }
+                });
             }
-            recyclerView.setAdapter(new MyStudentRecyclerViewAdapter(MainApplication.studentList, mListener));
-        }
+        }).start();
         return view;
     }
 
